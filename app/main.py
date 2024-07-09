@@ -1,12 +1,17 @@
 from fastapi import FastAPI
-from .database import engine
-from . import models
+from .database import engine, Base, database
 from .routers import todos
 
-models.Base.metadata.create_all(bind=engine)
+app = FastAPI()
 
-app = FastAPI( title="Todo APP",
-    description="This is a test todo app for the FastAPI.",
-    version="1.0")
+@app.on_event("startup")
+async def startup():
+    await database.connect()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+@app.on_event("shutdown")
+async def shutdown():
+    await database.disconnect()
 
 app.include_router(todos.router, prefix="/todos", tags=["todos"])
